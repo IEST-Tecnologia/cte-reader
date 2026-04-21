@@ -1,0 +1,6 @@
+*.exe
+*.xlsx
+*.zip
+dist/
+data/
+bin/
