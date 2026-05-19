@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/sqweek/dialog"
 )
@@ -30,8 +31,8 @@ func getFilename() string {
 	return filename
 }
 
-func showResult(written, skipped int, outPath string) {
-	msg := fmt.Sprintf("%d CT-e(s) exportados para:\n%s", written, outPath)
+func showResult(written, skipped int, outPaths []string) {
+	msg := fmt.Sprintf("%d CT-e(s) exportados para:\n%s", written, strings.Join(outPaths, "\n"))
 	if skipped > 0 {
 		msg += fmt.Sprintf("\n\n%d arquivo(s) ignorados por erro.", skipped)
 	}

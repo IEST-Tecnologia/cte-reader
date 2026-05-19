@@ -2,14 +2,17 @@
 
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 func getFilename() string {
 	return "data/test.zip"
 }
 
-func showResult(written, skipped int, outPath string) {
-	fmt.Printf("Done. %d record(s) written to %s", written, outPath)
+func showResult(written, skipped int, outPaths []string) {
+	fmt.Printf("Done. %d record(s) written to %s", written, strings.Join(outPaths, ", "))
 	if skipped > 0 {
 		fmt.Printf(", %d file(s) skipped", skipped)
 	}

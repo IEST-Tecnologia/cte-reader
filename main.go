@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/xuri/excelize/v2"
@@ -118,7 +119,23 @@ func parseCte(data []byte) (*CteProc, error) {
 	return &cte, nil
 }
 
-// ---- Main ----
+// ---- Workbook helpers ----
+
+const sheet = "CTe"
+
+// chunkSizeStr is overridden at build time via -ldflags "-X main.chunkSizeStr=N".
+var chunkSizeStr = "500000"
+
+var chunkSize int
+
+func init() {
+	n, err := strconv.Atoi(chunkSizeStr)
+	if err != nil || n <= 0 {
+		fmt.Fprintf(os.Stderr, "Invalid chunk size %q, using 500000\n", chunkSizeStr)
+		n = 500_000
+	}
+	chunkSize = n
+}
 
 var headers = []string{
 	"Número CT-e",
@@ -139,12 +156,41 @@ var headers = []string{
 	"Chave de Acesso",
 }
 
+func newWorkbook() *excelize.File {
+	f := excelize.NewFile()
+	f.SetSheetName("Sheet1", sheet)
+	for col, h := range headers {
+		cell, _ := excelize.CoordinatesToCellName(col+1, 1)
+		f.SetCellValue(sheet, cell, h)
+	}
+	style, _ := f.NewStyle(&excelize.Style{Font: &excelize.Font{Bold: true}})
+	f.SetRowStyle(sheet, 1, 1, style)
+	return f
+}
+
+func saveWorkbook(f *excelize.File, path string) error {
+	cols, _ := f.GetCols(sheet)
+	for i, col := range cols {
+		maxLen := 0
+		for _, c := range col {
+			if len(c) > maxLen {
+				maxLen = len(c)
+			}
+		}
+		name, _ := excelize.ColumnNumberToName(i + 1)
+		f.SetColWidth(sheet, name, name, float64(maxLen)+2)
+	}
+	return f.SaveAs(path)
+}
+
+// ---- Main ----
+
 func main() {
 	zipPath := getFilename()
 	if zipPath == "" {
 		os.Exit(1)
 	}
-	outPath := strings.TrimSuffix(zipPath, filepath.Ext(zipPath)) + ".xlsx"
+	base := strings.TrimSuffix(zipPath, filepath.Ext(zipPath))
 
 	r, err := zip.OpenReader(zipPath)
 	if err != nil {
@@ -153,22 +199,12 @@ func main() {
 	}
 	defer r.Close()
 
-	f := excelize.NewFile()
-	const sheet = "CTe"
-	f.SetSheetName("Sheet1", sheet)
-
-	// Write headers
-	for col, h := range headers {
-		cell, _ := excelize.CoordinatesToCellName(col+1, 1)
-		f.SetCellValue(sheet, cell, h)
-	}
-
-	// Bold header style
-	style, _ := f.NewStyle(&excelize.Style{Font: &excelize.Font{Bold: true}})
-	f.SetRowStyle(sheet, 1, 1, style)
-
+	f := newWorkbook()
 	row := 2
+	chunkNum := 1
+	totalWritten := 0
 	skipped := 0
+	var outPaths []string
 
 	for _, file := range r.File {
 		if !strings.HasSuffix(strings.ToLower(file.Name), ".xml") {
@@ -234,25 +270,40 @@ func main() {
 			f.SetCellValue(sheet, cell, v)
 		}
 		row++
-	}
+		totalWritten++
 
-	// Auto-fit columns
-	cols, _ := f.GetCols(sheet)
-	for i, col := range cols {
-		maxLen := 0
-		for _, cell := range col {
-			if len(cell) > maxLen {
-				maxLen = len(cell)
+		if totalWritten%chunkSize == 0 {
+			path := fmt.Sprintf("%s_parte%d.xlsx", base, chunkNum)
+			if err := saveWorkbook(f, path); err != nil {
+				fmt.Fprintf(os.Stderr, "Error saving %s: %v\n", path, err)
+				os.Exit(1)
 			}
+			outPaths = append(outPaths, path)
+			f = newWorkbook()
+			row = 2
+			chunkNum++
 		}
-		name, _ := excelize.ColumnNumberToName(i + 1)
-		f.SetColWidth(sheet, name, name, float64(maxLen)+2)
 	}
 
-	if err := f.SaveAs(outPath); err != nil {
-		fmt.Fprintf(os.Stderr, "Error saving Excel: %v\n", err)
-		os.Exit(1)
+	// Save the last (or only) chunk if it has data rows.
+	if row > 2 {
+		path := fmt.Sprintf("%s_parte%d.xlsx", base, chunkNum)
+		if err := saveWorkbook(f, path); err != nil {
+			fmt.Fprintf(os.Stderr, "Error saving %s: %v\n", path, err)
+			os.Exit(1)
+		}
+		outPaths = append(outPaths, path)
 	}
 
-	showResult(row-2, skipped, outPath)
+	// Single chunk: drop the _part1 suffix for a cleaner output name.
+	if len(outPaths) == 1 {
+		clean := base + ".xlsx"
+		if err := os.Rename(outPaths[0], clean); err != nil {
+			fmt.Fprintf(os.Stderr, "Error renaming output: %v\n", err)
+			os.Exit(1)
+		}
+		outPaths[0] = clean
+	}
+
+	showResult(totalWritten, skipped, outPaths)
 }
