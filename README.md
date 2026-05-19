@@ -10,6 +10,8 @@ On Windows, double-click the `.exe`. A file picker will open — select the ZIP 
 
 | Column                    | Description                |
 | ------------------------- | -------------------------- |
+| Número CT-e               | CT-e sequential number     |
+| Data de Emissão           | Emission date and time     |
 | Razão Social Emitente     | Emitter company name       |
 | CNPJ Emitente             | Emitter tax ID             |
 | Razão Social Remetente    | Sender company name        |

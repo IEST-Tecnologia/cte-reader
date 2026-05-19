@@ -34,6 +34,8 @@ type InfCte struct {
 }
 
 type Ide struct {
+	NCT     string `xml:"nCT"`
+	DhEmi   string `xml:"dhEmi"`
 	CFOP    string `xml:"CFOP"`
 	XMunIni string `xml:"xMunIni"`
 	UFIni   string `xml:"UFIni"`
@@ -119,6 +121,8 @@ func parseCte(data []byte) (*CteProc, error) {
 // ---- Main ----
 
 var headers = []string{
+	"Número CT-e",
+	"Data de Emissão",
 	"Razão Social Emitente",
 	"CNPJ Emitente",
 	"Razão Social Remetente",
@@ -207,6 +211,8 @@ func main() {
 		fim := inf.Ide.XMunFim + " - " + inf.Ide.UFFim
 
 		values := []any{
+			inf.Ide.NCT,
+			inf.Ide.DhEmi,
 			inf.Emit.XNome,
 			inf.Emit.CNPJ,
 			inf.Rem.XNome,
