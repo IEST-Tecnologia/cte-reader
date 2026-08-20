@@ -1,4 +1,4 @@
-module cte-reader
+module fiscal-reader
 
 go 1.21
 

@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/sqweek/dialog"
+
+	"fiscal-reader/internal/convert"
 )
 
 func getFilename() string {
@@ -20,7 +22,7 @@ func getFilename() string {
 	startDir := filepath.Dir(exePath)
 
 	filename, err := dialog.File().
-		Title("Selecionar arquivo ZIP com CT-es").
+		Title("Selecionar arquivo ZIP com documentos fiscais").
 		Filter("Arquivo ZIP", "zip").
 		SetStartDir(startDir).
 		Load()
@@ -31,10 +33,26 @@ func getFilename() string {
 	return filename
 }
 
-func showResult(written, skipped int, outPaths []string) {
-	msg := fmt.Sprintf("%d CT-e(s) exportados para:\n%s", written, strings.Join(outPaths, "\n"))
-	if skipped > 0 {
-		msg += fmt.Sprintf("\n\n%d arquivo(s) ignorados por erro.", skipped)
+func showResult(res convert.Result) {
+	var parts []string
+	for _, c := range res.Counts {
+		parts = append(parts, fmt.Sprintf("%d linha(s) de %s", c.Rows, c.Sheet))
 	}
-	dialog.Message("%s", msg).Title("CTE Reader — Concluído").Info()
+	if len(parts) == 0 {
+		dialog.Message("Nenhum documento fiscal encontrado no arquivo ZIP.").
+			Title("Fiscal Reader — Concluído").Info()
+		return
+	}
+
+	msg := fmt.Sprintf("%s exportadas para:\n%s", strings.Join(parts, "\n"), strings.Join(res.Outputs, "\n"))
+	if res.Events > 0 {
+		msg += fmt.Sprintf("\n\n%d evento(s) lidos, %d cancelamento(s) aplicados.", res.Events, res.Cancelled)
+	}
+	if res.Skipped > 0 {
+		msg += fmt.Sprintf("\n\n%d arquivo(s) ignorados por erro.", res.Skipped)
+	}
+	if res.Ignored > 0 {
+		msg += fmt.Sprintf("\n%d arquivo(s) de tipo não suportado.", res.Ignored)
+	}
+	dialog.Message("%s", msg).Title("Fiscal Reader — Concluído").Info()
 }

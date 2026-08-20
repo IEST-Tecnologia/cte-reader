@@ -16,11 +16,14 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Test
+        run: make test
+
       - name: Build
         run: make build
 
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          files: cte-reader.exe
+          files: fiscal-reader.exe
           generate_release_notes: true
